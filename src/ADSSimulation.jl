@@ -2,7 +2,7 @@ module ADSSimulation
 
 using ComponentArrays
 
-const RAW_DATA_PATH = "/Users/abills/Datasets/ADS_CMU_Ageing/CMU"
+const RAW_DATA_PATH = "/home/abills/Data"
 
 include("simulation_builder.jl")
 include("cellgeometry.jl")

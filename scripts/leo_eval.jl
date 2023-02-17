@@ -1,5 +1,6 @@
-using PythonCall
-using PythonPlot
+
+#using PythonCall
+#using PythonPlot
 using DataFrames
 using CSV
 using JLD2
@@ -18,8 +19,8 @@ cache = CellFitElectrolyte.initialize_cache(Float64)
 @load "data/anodeocv.jld2"
 
 RoomTemperature = ADSSimulation.RoomTemperature
-sys = pyimport("sys")
-pybamm = pyimport("pybamm")
+#sys = pyimport("sys")
+#pybamm = pyimport("pybamm")
 RAW_DATA_PATH = ADSSimulation.RAW_DATA_PATH
 data = load(RAW_DATA_PATH * "/room_temperature.jld2")
 room_temperature = data["room_temperature"]
@@ -44,7 +45,7 @@ current = -df[!,"I/mA"]./1000
 current_interpolant = LinearInterpolation(current,df[!,"time/s"])
 voltage_interpolant = LinearInterpolation(df[!,"Ecell/V"],df[!,"time/s"])
 
-interpolated_time = collect(range(df[1,"time/s"],stop=df[end,"time/s"],step=1.0))
+interpolated_time = collect(range(df[1,"time/s"],stop=df[end,"time/s"],step=15.0))
 
 
 interpolated_current = current_interpolant.(interpolated_time)
@@ -134,7 +135,7 @@ function fit_cfe_ads(arr)
     try
         V = evaluator(p)
         rmse = sqrt(mean((V .- interpolated_voltage[1:end-1]).^2))
-        return V
+        return sum(V)
     catch
         return 1e12
     end
@@ -155,17 +156,17 @@ lb = [0.01, 0.01, 0.01, 0.01, 0.8, 0.0]
 #CellFitElectrolyte.anneal(fit_cfe_ads, parent, ub, lb)
 
 
-
+frac_sol_am_neg = 0.2
+frac_sol_am_pos = 0.9
+εₑ⁺ = 0.3
+εₑ⁻ = 0.3
+x⁻₀ = 0.8
+ω = 0.015
 #println(rmse)
 
 arr = [0.20678103076466636, 0.9015232723068044, 0.09767537701626247, 0.15770519030456417, 0.8303459498804079, 0.014800200150565782]
-
+arr = parent
 V = fit_cfe_ads(arr)
 
 
-figure(1)
-clf()
-plot(interpolated_time[1:end-1], V)
-plot(df[!,"time/s"],df[!,"Ecell/V"])
-legend(["Model","Experiment"])
 

@@ -1,5 +1,3 @@
-using PythonCall
-using PythonPlot
 using DataFrames
 using CSV
 using JLD2
@@ -20,8 +18,8 @@ cache = CellFitElectrolyte.initialize_cache(Float64)
 @load "data/anodeocv.jld2"
 
 RoomTemperature = ADSSimulation.RoomTemperature
-sys = pyimport("sys")
-pybamm = pyimport("pybamm")
+#sys = pyimport("sys")
+#pybamm = pyimport("pybamm")
 RAW_DATA_PATH = ADSSimulation.RAW_DATA_PATH
 data = load(RAW_DATA_PATH * "/room_temperature.jld2")
 room_temperature = data["room_temperature"]
@@ -46,7 +44,7 @@ current = -df[!,"I/mA"]./1000
 current_interpolant = LinearInterpolation(current,df[!,"time/s"])
 voltage_interpolant = LinearInterpolation(df[!,"Ecell/V"],df[!,"time/s"])
 
-interpolated_time = collect(range(df[1,"time/s"],stop=df[end,"time/s"],step=1.0))
+interpolated_time = collect(range(df[1,"time/s"],stop=df[end,"time/s"],step=15.0))
 
 
 interpolated_current = current_interpolant.(interpolated_time)
@@ -121,13 +119,13 @@ function evaluator(p::ComponentVector{T}) where {T}
 end
 
 
-@model function fit_cfe_ads()
-    frac_sol_am_neg ~ Uniform(0.5, 1.0)
-    frac_sol_am_pos = 0.9
-    εₑ⁺ = 0.3
-    εₑ⁻ = 0.3
-    x⁻₀ = 0.8
-    ω = 0.015
+@model function fit_cfe_ads(interpolated_voltage)
+    frac_sol_am_neg ~ Uniform(0.75, 1.0)
+    frac_sol_am_pos ~ Uniform(0.75, 1.0)
+    εₑ⁺ ~ Uniform(0.01, 0.5)
+    εₑ⁻ ~ Uniform(0.01, 0.5)
+    x⁻₀ ~ Uniform(0.5, 1.0)
+    ω ~ Uniform(0.0, 0.1)
 
     εₛ⁻ = (1 - εₑ⁻)*frac_sol_am_neg
     εₛ⁺ = (1 - εₑ⁺)*frac_sol_am_pos
@@ -137,14 +135,14 @@ end
     p = ComponentVector(θₛ⁻ = 1e-8, θₑ = 5e-7, θₛ⁺ = 6.547741580032837e-8, R⁺ = 3.8e-6, R⁻ = 6.1e-6, β⁻ = 1.5, β⁺ = 1.5, βˢ = 1.5, εₛ⁻ = εₛ⁻, εₛ⁺ = εₛ⁺, εᵧ⁺ = εᵧ⁺, εᵧ⁻ = εᵧ⁻, c = 50.0, h = 0.1, Tamb = 298.15, Temp = 298.15, k₀⁺ = 0.002885522176210856, k₀⁻ = 1.7219544782420964, x⁻₀ = x⁻₀, εₑˢ = 0.8, cₑ₀ = 1000.0, κ = 0.2025997972168558, t⁺ = 0.38, input_type = 3.0, input_value = 4.2, ω = ω, Eₑ = 50.0, Eₛ⁺ = 50.0, Eₛ⁻ = 50.0)
 
     V = evaluator(p)
-    V ~ MvNormal(interpolated_voltage[1:end-1],0.1)
+    interpolated_voltage[1:end-1] ~ MvNormal(V,0.1)
     return nothing
 end
 
 
-model = fit_cfe_ads()
+model = fit_cfe_ads(interpolated_voltage)
 
-chain = sample(model, NUTS(0.65), 1000)
+chain = sample(model, NUTS(0.65), 100)
 
 #=
 
